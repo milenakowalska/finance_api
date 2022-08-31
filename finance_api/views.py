@@ -20,7 +20,10 @@ class MinimalMetadata(metadata.BaseMetadata):
             'body template': view.get_body_template()
         }
 
-class InfoView(views.APIView):    
+class InfoView(views.APIView): 
+    # available also for not logged in users
+    permission_classes = (permissions.AllowAny,)
+
     def get(self, request):
         return Response({"endpoints": ""}, status=status.HTTP_202_ACCEPTED)
 

@@ -9,6 +9,7 @@
 
 ### Other:
 1. Python static type checker `mypy`
+2. Swagger used for API documentation
 
 ------
 ## **Local checkout and first run**
