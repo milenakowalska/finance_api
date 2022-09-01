@@ -1,38 +1,20 @@
 from django.contrib.auth import login, logout
-from django.http import JsonResponse
 from rest_framework import permissions
 from rest_framework import views
 from rest_framework import status
 from rest_framework import generics
-from rest_framework import metadata
 from rest_framework.response import Response
+import coreapi
+import coreschema
+from rest_framework.schemas import ManualSchema
 
 from . import serializers
-
-class MinimalMetadata(metadata.BaseMetadata):
-    """
-    Return the name, description and body template.
-    """
-    def determine_metadata(self, request, view):
-        return {
-            'name': view.get_view_name(),
-            'description': view.get_view_description(),
-            'body template': view.get_body_template()
-        }
-
-class InfoView(views.APIView): 
-    # available also for not logged in users
-    permission_classes = (permissions.AllowAny,)
-
-    def get(self, request):
-        return Response({"endpoints": ""}, status=status.HTTP_202_ACCEPTED)
 
 class LoginView(views.APIView):
     """
     User login endpoint.
     POST body requires username and password.
     """
-    metadata_class = MinimalMetadata
 
     # available also for not logged in users
     permission_classes = (permissions.AllowAny,)
@@ -52,8 +34,24 @@ class RegisterView(views.APIView):
     """
     User register endpoint.
     POST body requires username, password and confirm_password fields.
+    ---
+    post:
+        parameters:
+            - name: username
+              type: string
     """
-    metadata_class = MinimalMetadata
+
+    schema = ManualSchema(
+        fields=[
+            coreapi.Field(
+                'id',
+                required=True,
+                location='path',
+                description='A unique integer value identifying specific your-model-name.',
+                schema=coreschema.Integer(),
+                ),
+        ]
+    )
 
     # available also for not logged in users
     permission_classes = (permissions.AllowAny,)
