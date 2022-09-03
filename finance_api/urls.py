@@ -17,14 +17,4 @@ urlpatterns = [
     path('register/', RegisterView.as_view()),
     path('logout/', LogoutView.as_view()),
     path('', schema_view),
-    path('docs/', TemplateView.as_view(
-        template_name='swagger-ui.html',
-        extra_context={'schema_url':'api_schema'}
-        ), name='swagger-ui'),
-    path('api_schema/', get_schema_view(
-        title='Finance API',
-        description='Documentatio for the Django Finance API'
-    ), name='api_schema'),
 ]
-
-## either / or docs/ - check which is better

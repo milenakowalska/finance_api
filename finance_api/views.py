@@ -11,16 +11,28 @@ from rest_framework.schemas import ManualSchema
 from . import serializers
 
 class LoginView(views.APIView):
-    """
-    User login endpoint.
-    POST body requires username and password.
-    """
+    schema = ManualSchema(
+        description="User login endpoint.",
+        fields=[
+            coreapi.Field(
+                'username',
+                required=True,
+                description='A unique username',
+                location='path',
+                schema=coreschema.String(),
+                ),
+            coreapi.Field(
+                'password',
+                required=True,
+                description='Password',
+                location='path',
+                schema=coreschema.String(),
+                ),
+        ]
+    )
 
     # available also for not logged in users
     permission_classes = (permissions.AllowAny,)
-
-    def get_body_template(self):
-        return {"username": "required", "password": "required"}
 
     def post(self, request):
         serializer = serializers.LoginSerializer(data=self.request.data,
@@ -31,40 +43,43 @@ class LoginView(views.APIView):
         return Response(None, status=status.HTTP_202_ACCEPTED)
 
 class RegisterView(views.APIView):
-    """
-    User register endpoint.
-    POST body requires username, password and confirm_password fields.
-    ---
-    post:
-        parameters:
-            - name: username
-              type: string
-    """
 
     schema = ManualSchema(
+        description="User register endpoint.",
         fields=[
             coreapi.Field(
-                'id',
+                'username',
                 required=True,
+                description='A unique username',
                 location='path',
-                description='A unique integer value identifying specific your-model-name.',
-                schema=coreschema.Integer(),
+                schema=coreschema.String(),
+                ),
+            coreapi.Field(
+                'password',
+                required=True,
+                description='Password',
+                location='path',
+                schema=coreschema.String(),
+                ),
+            coreapi.Field(
+                'confirm_password',
+                required=True,
+                description='Confirm password',
+                location='path',
+                schema=coreschema.String(),
+                ),
+            coreapi.Field(
+                'first_name',
+                required=False,
+                description='First name - optional',
+                location='path',
+                schema=coreschema.String(),
                 ),
         ]
     )
 
     # available also for not logged in users
     permission_classes = (permissions.AllowAny,)
-
-    def get_body_template(self):
-        return {
-            "username": "required",
-            "password": "required",
-            "confirm_password": "required",
-            "email": "optional",
-            "first_name": "optional",
-            "last_name": "optional"
-            }
 
     def post(self, request):
         serializer = serializers.RegisterSerializer(data=self.request.data)
@@ -76,6 +91,7 @@ class RegisterView(views.APIView):
 class ProfileView(generics.RetrieveAPIView):
     """
     Shows user data of the logged in user.
+    Accessible only for authorized users.
     """
     serializer_class = serializers.UserSerializer
 
