@@ -4,6 +4,9 @@ from .views import (
     LogoutView,
     ProfileView,
     RegisterView,
+    ContractsView,
+    BalanceView,
+    PrognoseView
 )
 from rest_framework_swagger.views import get_swagger_view
 from django.views.generic import TemplateView
@@ -17,4 +20,7 @@ urlpatterns = [
     path('register/', RegisterView.as_view()),
     path('logout/', LogoutView.as_view()),
     path('', schema_view),
+    path('contracts/', ContractsView.as_view()),
+    path('balance/', BalanceView.as_view()),
+    path('prognose/', PrognoseView.as_view()),
 ]
