@@ -1,12 +1,20 @@
+from datetime import date
 from django.test import TestCase
-from .models import Animal
+from .models import Contract
+from django.contrib.auth.models import User
 
-class AnimalTestCase(TestCase):
-    def test_animals_can_speak(self):
-        """Animals that can speak are correctly identified"""
-        Animal.objects.create(name="lion", sound="roar")
-        Animal.objects.create(name="cat", sound="meow")
-        lion = Animal.objects.get(name="lion")
-        cat = Animal.objects.get(name="cat")
-        self.assertEqual(cat.speak(), 'The cat says "meow"')
-        self.assertEqual(lion.speak(), 'The lion says "roar"')
+class ContractTestCase(TestCase):
+    def test_contract(self):
+        """Contract is created correctly with the default data"""
+        User.objects.create(
+            username = "Testing user"
+        )
+        Contract.objects.create(
+            name = "Internet",
+            description = "Internet bill",
+            first_billing_day = date(year = 2022, month = 5, day = 20),
+            user = User.objects.get(username="Testing user")
+            )
+        internet_contract = Contract.objects.get(name="Internet")
+        self.assertEqual(internet_contract.end_date, None)
+        self.assertEqual(internet_contract.billing_frequency, Contract.Frequency.MONTHLY)

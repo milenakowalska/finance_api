@@ -106,21 +106,31 @@ class LogoutView(views.APIView):
         logout(request)
         return Response(None, status=status.HTTP_202_ACCEPTED)
 
-class ContractsView(views.APIView):
+class ContractsList(views.APIView):
     """
     Manage contracts
     """
-    def get_object(self, pk):
-        return Response(None, status=status.HTTP_200_OK)
-
     def get(self, request):
         return Response(None, status=status.HTTP_200_OK)
     
     def post(self, request):
         return Response(None, status=status.HTTP_202_ACCEPTED)
 
-    def put(self, request):
-        return Response(None, status=status.HTTP_202_ACCEPTED)
+class Contract(views.APIView):
+    """
+    Manage single contract
+    """
+    def get_object(self, pk):
+        return Response(None, status=status.HTTP_200_OK)
+
+    def get(self, request, pk):
+        return Response(None, status=status.HTTP_200_OK)
+    
+    def put(self, request, pk):
+        return Response(None, status=status.HTTP_200_OK)
+
+    def delete(self, request, pk):
+        return Response(None, status=status.HTTP_200_OK)
 
     
 class BalanceView(views.APIView):
