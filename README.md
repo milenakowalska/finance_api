@@ -1,15 +1,12 @@
 # **Finance App**
 
+[Planning in dropbox paper](https://www.dropbox.com/scl/fi/qvyega08cmrvwa5pu8e5y/Finance-App.paper?dl=0&rlkey=1qa42e9eip31c27e4ih0hh7ys)
 ## **Technologies**
 
-### Main:
 1. Python Django Framework
 2. PostgreSQL
 3. Docker
-
-### Other:
-1. Python static type checker `mypy`
-2. Swagger used for API documentation
+4. Swagger used for API documentation
 
 ------
 ## **Local checkout and first run**

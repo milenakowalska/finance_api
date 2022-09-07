@@ -5,7 +5,7 @@ from .views import (
     ProfileView,
     RegisterView,
     ContractsList,
-    Contract,
+    SingleContract,
     BalanceView,
     PrognoseView
 )
@@ -22,7 +22,7 @@ urlpatterns = [
     path('logout/', LogoutView.as_view()),
     path('', schema_view),
     path('contracts/', ContractsList.as_view()),
-    path('contracts/<int:pk>/', Contract.as_view()),
+    path('contracts/<int:pk>/', SingleContract.as_view()),
     path('balance/', BalanceView.as_view()),
     path('prognose/', PrognoseView.as_view()),
 ]

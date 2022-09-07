@@ -7,7 +7,7 @@ from rest_framework.response import Response
 import coreapi
 import coreschema
 from rest_framework.schemas import ManualSchema
-
+from .models import Contract
 from . import serializers
 
 class LoginView(views.APIView):
@@ -110,13 +110,30 @@ class ContractsList(views.APIView):
     """
     Manage contracts
     """
+    serializer_class = serializers.ContractSerializer
+
     def get(self, request):
-        return Response(None, status=status.HTTP_200_OK)
+        all_contracts = Contract.objects.all().filter(user=self.request.user)
+        serializer = self.serializer_class(all_contracts, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     def post(self, request):
-        return Response(None, status=status.HTTP_202_ACCEPTED)
+        new_contract = {
+            'name': self.request.data['name'],
+            'user': self.request.user.id,
+            'description': self.request.data['description'],
+            'first_billing_day': self.request.data['first_billing_day'],
+            'end_date': self.request.data['end_date'],
+            'billing_frequency': self.request.data['billing_frequency'],
+        }
 
-class Contract(views.APIView):
+        serializer = self.serializer_class(data=new_contract)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class SingleContract(views.APIView):
     """
     Manage single contract
     """

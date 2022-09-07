@@ -1,7 +1,7 @@
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from rest_framework import serializers
-
+from .models import Contract
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -10,6 +10,18 @@ class UserSerializer(serializers.ModelSerializer):
             'email',
             'first_name',
             'last_name',
+        ]
+
+class ContractSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Contract
+        fields = [
+            'name',
+            'user',
+            'description',
+            'first_billing_day',
+            'end_date',
+            'billing_frequency',
         ]
 
 class LoginSerializer(serializers.Serializer):
