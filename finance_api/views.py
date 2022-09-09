@@ -120,16 +120,16 @@ class ContractsList(views.APIView):
     def post(self, request):
         new_contract = {
             'name': self.request.data['name'],
-            'user': self.request.user.id,
+            'user': self.request.user,
             'description': self.request.data['description'],
             'first_billing_day': self.request.data['first_billing_day'],
-            'end_date': self.request.data['end_date'],
+            'end_date': None if self.request.data['end_date'] == "" else self.request.data['end_date'],
             'billing_frequency': self.request.data['billing_frequency'],
         }
 
         serializer = self.serializer_class(data=new_contract)
         if serializer.is_valid(raise_exception=True):
-            serializer.save()
+            Contract.objects.create(**new_contract)
         
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -137,17 +137,43 @@ class SingleContract(views.APIView):
     """
     Manage single contract
     """
+    serializer_class = serializers.ContractSerializer
+
     def get_object(self, pk):
-        return Response(None, status=status.HTTP_200_OK)
+        return Contract.objects.get(pk = pk)
 
     def get(self, request, pk):
-        return Response(None, status=status.HTTP_200_OK)
-    
-    def put(self, request, pk):
-        return Response(None, status=status.HTTP_200_OK)
+        try:
+            contract = self.get_object(pk)
+            serializer = self.serializer_class(contract)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except:
+            return Response({"message":"not found"}, status=status.HTTP_404_NOT_FOUND)
 
+    def put(self, request, pk):
+        updated_contract = {
+            'name': self.request.data['name'],
+            'user': self.request.user,
+            'description': self.request.data['description'],
+            'first_billing_day': self.request.data['first_billing_day'],
+            'end_date': None if self.request.data['end_date'] == "" else self.request.data['end_date'],
+            'billing_frequency': self.request.data['billing_frequency'],
+        }
+
+        contract = self.get_object(pk)
+        serializer = self.serializer_class(contract, data=updated_contract)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
     def delete(self, request, pk):
-        return Response(None, status=status.HTTP_200_OK)
+        try:
+            contract = self.get_object(pk)
+            contract.delete()
+            return Response({"message":"contract deleted"}, status=status.HTTP_200_OK)
+        except:
+            return Response({"message":"error"}, status=status.HTTP_404_NOT_FOUND)
 
     
 class BalanceView(views.APIView):

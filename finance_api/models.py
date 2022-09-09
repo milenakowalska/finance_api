@@ -18,3 +18,4 @@ class Contract(models.Model):
         choices = Frequency.choices,
         default = Frequency.MONTHLY
     )
+    billing_amount = models.FloatField(null = True)
