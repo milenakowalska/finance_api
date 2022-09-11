@@ -36,7 +36,7 @@ class Saving(Cost):
 class RecurringSaving(Cost):
     start_date = models.DateField(default = date.today)
     end_date = models.DateField(null = True)
-    billing_frequency = models.CharField(
+    frequency = models.CharField(
         max_length = 10,
         choices = Frequency.choices,
         default = Frequency.MONTHLY

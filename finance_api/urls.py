@@ -7,7 +7,9 @@ from .views import (
     ContractsList,
     SingleContract,
     BalanceView,
-    PrognoseView
+    PrognoseView,
+    SavingsList,
+    SingleSaving
 )
 from rest_framework_swagger.views import get_swagger_view
 from django.views.generic import TemplateView
@@ -23,6 +25,11 @@ urlpatterns = [
     path('', schema_view),
     path('contracts/', ContractsList.as_view()),
     path('contracts/<int:pk>/', SingleContract.as_view()),
+    path('savings/', SavingsList.as_view()),
+    path('savings/<int:pk>/', SingleSaving.as_view()),
     path('balance/', BalanceView.as_view()),
     path('prognose/', PrognoseView.as_view()),
 ]
+
+
+

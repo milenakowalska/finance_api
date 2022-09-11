@@ -1,7 +1,7 @@
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from rest_framework import serializers
-from .models import Contract
+from .models import Contract, Saving, RecurringSaving
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -19,9 +19,34 @@ class ContractSerializer(serializers.ModelSerializer):
             'id',
             'name',
             'description',
+            'amount',
             'first_billing_day',
             'end_date',
             'billing_frequency',
+        ]
+
+class SavingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Saving
+        fields = [
+            'id',
+            'name',
+            'description',
+            'amount',
+            'pay_out_day'
+        ]
+
+class RecurringSavingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RecurringSaving
+        fields = [
+            'id',
+            'name',
+            'description',
+            'amount',
+            'start_date',
+            'end_date',
+            'frequency',
         ]
 
 class LoginSerializer(serializers.Serializer):

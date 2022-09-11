@@ -7,7 +7,7 @@ from rest_framework.response import Response
 import coreapi
 import coreschema
 from rest_framework.schemas import ManualSchema
-from .models import Contract
+from .models import Contract, Saving, RecurringSaving
 from . import serializers
 
 class LoginView(views.APIView):
@@ -122,6 +122,7 @@ class ContractsList(views.APIView):
             'name': self.request.data['name'],
             'user': self.request.user,
             'description': self.request.data['description'],
+            'amount': self.request.data['amount'],
             'first_billing_day': self.request.data['first_billing_day'],
             'end_date': None if self.request.data['end_date'] == "" else self.request.data['end_date'],
             'billing_frequency': self.request.data['billing_frequency'],
@@ -134,6 +135,97 @@ class ContractsList(views.APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class SingleContract(views.APIView):
+    """
+    Manage single contract
+    """
+    serializer_class = serializers.ContractSerializer
+
+    def get_object(self, pk):
+        return Contract.objects.get(pk = pk)
+
+    def get(self, request, pk):
+        try:
+            contract = self.get_object(pk)
+            serializer = self.serializer_class(contract)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except:
+            return Response({"message":"not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    def put(self, request, pk):
+        updated_contract = {
+            'name': self.request.data['name'],
+            'user': self.request.user,
+            'description': self.request.data['description'],
+            'amount': self.request.data['amount'],
+            'first_billing_day': self.request.data['first_billing_day'],
+            'end_date': None if self.request.data['end_date'] == "" else self.request.data['end_date'],
+            'billing_frequency': self.request.data['billing_frequency'],
+        }
+
+        contract = self.get_object(pk)
+        serializer = self.serializer_class(contract, data=updated_contract)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    def delete(self, request, pk):
+        try:
+            contract = self.get_object(pk)
+            contract.delete()
+            return Response({"message":"contract deleted"}, status=status.HTTP_200_OK)
+        except:
+            return Response({"message":"error"}, status=status.HTTP_404_NOT_FOUND)
+
+class SavingsList(views.APIView):
+    """
+    Manage savings
+    There are two types of savings:
+    1. One-time saving
+    2. Recurring saving
+    """
+
+    def get(self, request):
+        all_savings = Saving.objects.all().filter(user=self.request.user)
+        savings_serializer = serializers.SavingSerializer(all_savings, many=True)
+
+        all_recurring_savings = RecurringSaving.objects.all().filter(user=self.request.user)
+        recurring_savings_serializer = serializers.RecurringSavingSerializer(all_recurring_savings, many=True)
+
+        return Response(
+            {
+                "savings": savings_serializer.data,
+                "recurring_savings": recurring_savings_serializer.data
+            }, status=status.HTTP_200_OK
+        )
+    
+    def post(self, request):
+        new_saving = {
+            'name': self.request.data['name'],
+            'user': self.request.user,
+            'description': self.request.data['description'],
+            'amount': self.request.data['amount']
+        }
+
+        if (self.request.data['recurring'] == True):
+            new_saving['start_date'] = self.request.data['start_date']
+            new_saving['end_date'] = self.request.data['end_date']
+            new_saving['frequency'] = self.request.data['frequency']
+            
+            serializer = serializers.RecurringSavingSerializer(data=new_saving)
+            if serializer.is_valid(raise_exception=True):
+                RecurringSaving.objects.create(**new_saving)
+        else:
+            new_saving['pay_out_day'] = self.request.data['pay_out_day']
+
+            serializer = serializers.SavingSerializer(data=new_saving)
+            if serializer.is_valid(raise_exception=True):
+                Saving.objects.create(**new_saving)
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class SingleSaving(views.APIView):
     """
     Manage single contract
     """
@@ -174,6 +266,7 @@ class SingleContract(views.APIView):
             return Response({"message":"contract deleted"}, status=status.HTTP_200_OK)
         except:
             return Response({"message":"error"}, status=status.HTTP_404_NOT_FOUND)
+
 
     
 class BalanceView(views.APIView):
