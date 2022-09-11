@@ -1,7 +1,7 @@
 from datetime import date
 from django.db import models
 from django.contrib.auth.models import User
-
+from dateutil.relativedelta import relativedelta
 
 class Cost(models.Model):
     name = models.CharField(max_length = 30)
@@ -43,3 +43,17 @@ class RecurringSaving(Cost):
         default = Frequency.MONTHLY
     )
 
+    def frequency_to_months(self):
+        return {
+        Frequency.MONTHLY: 1,
+        Frequency.QUARTERLY: 3,
+        Frequency.ANNUALY: 12
+        }[self.frequency]
+
+    def saved_amount(self, reference_date):
+        save_day = self.start_date
+        total_saved = 0
+        saving_period = self.frequency_to_months()
+        while save_day <= reference_date:
+            total_saved += self.amount
+            save_day = save_day + relativedelta(months=+saving_period)

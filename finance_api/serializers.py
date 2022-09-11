@@ -2,6 +2,8 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from rest_framework import serializers
 from .models import Contract, Saving, RecurringSaving
+
+
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -11,6 +13,7 @@ class UserSerializer(serializers.ModelSerializer):
             'first_name',
             'last_name',
         ]
+
 
 class ContractSerializer(serializers.ModelSerializer):
     class Meta:
@@ -25,6 +28,7 @@ class ContractSerializer(serializers.ModelSerializer):
             'billing_frequency',
         ]
 
+
 class SavingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Saving
@@ -35,6 +39,11 @@ class SavingSerializer(serializers.ModelSerializer):
             'amount',
             'pay_out_day'
         ]
+
+
+class BalanceSerializer(serializers.Serializer):
+    balance = serializers.FloatField()
+
 
 class RecurringSavingSerializer(serializers.ModelSerializer):
     class Meta:
@@ -49,6 +58,7 @@ class RecurringSavingSerializer(serializers.ModelSerializer):
             'pay_out_day',
             'frequency',
         ]
+
 
 class LoginSerializer(serializers.Serializer):
     """
@@ -82,6 +92,7 @@ class LoginSerializer(serializers.Serializer):
         attrs['user'] = user
         return attrs
 
+
 class RegisterSerializer(serializers.Serializer):
     """
     TODO: Add Docstring
@@ -108,3 +119,5 @@ class RegisterSerializer(serializers.Serializer):
 
         attrs['user'] = new_user
         return attrs
+
+        

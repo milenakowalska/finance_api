@@ -9,6 +9,9 @@ import coreschema
 from rest_framework.schemas import ManualSchema
 from .models import Contract, Saving, RecurringSaving
 from . import serializers
+from .utils import create_statistics
+from datetime import date
+
 
 class LoginView(views.APIView):
     schema = ManualSchema(
@@ -328,12 +331,21 @@ class SingleSaving(views.APIView):
             return Response({"message":"error"}, status=status.HTTP_404_NOT_FOUND)
 
     
-class BalanceView(views.APIView):
+class StatisticsView(views.APIView):
     """
-    See balance
+    See statistics based on the current account balance
     """
     def get(self, request):
         return Response(None, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        serializer = serializers.BalanceSerializer(data=self.request.data)
+        serializer.is_valid(raise_exception=True)
+        total_account_balance = serializer.data['balance']
+        user = self.request.user
+        statistics = create_statistics(user, total_account_balance, date.today())
+        return Response(statistics.show(), status=status.HTTP_202_ACCEPTED)
+
 
 class PrognoseView(views.APIView):
     """
