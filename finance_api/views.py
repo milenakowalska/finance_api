@@ -80,6 +80,7 @@ class RegisterView(views.APIView):
 
     # available also for not logged in users
     permission_classes = (permissions.AllowAny,)
+    serializer_class = serializers.RegisterSerializer
 
     def post(self, request):
         serializer = serializers.RegisterSerializer(data=self.request.data)
@@ -177,26 +178,18 @@ class SingleContract(views.APIView):
         except:
             return Response({"message":"error"}, status=status.HTTP_404_NOT_FOUND)
 
-class SavingsList(views.APIView):
+
+class RecurringSavingsList(views.APIView):
     """
-    Manage savings
-    There are two types of savings:
-    1. One-time saving
-    2. Recurring saving
+    Manage recurring savings
     """
+    serializer_class = serializers.RecurringSavingSerializer
 
     def get(self, request):
-        all_savings = Saving.objects.all().filter(user=self.request.user)
-        savings_serializer = serializers.SavingSerializer(all_savings, many=True)
-
         all_recurring_savings = RecurringSaving.objects.all().filter(user=self.request.user)
-        recurring_savings_serializer = serializers.RecurringSavingSerializer(all_recurring_savings, many=True)
+        recurring_savings_serializer = self.serializer_class(all_recurring_savings, many=True)
 
-        return Response(
-            {
-                "savings": savings_serializer.data,
-                "recurring_savings": recurring_savings_serializer.data
-            }, status=status.HTTP_200_OK
+        return Response(recurring_savings_serializer.data, status=status.HTTP_200_OK
         )
     
     def post(self, request):
@@ -204,56 +197,51 @@ class SavingsList(views.APIView):
             'name': self.request.data['name'],
             'user': self.request.user,
             'description': self.request.data['description'],
-            'amount': self.request.data['amount']
+            'amount': self.request.data['amount'],
+            'start_date': self.request.data['start_date'],
+            'end_date': None if self.request.data['end_date'] == "" else self.request.data['end_date'],
+            'pay_out_day': None if self.request.data['pay_out_day'] == "" else self.request.data['pay_out_day'],
+            'frequency': self.request.data['frequency']
         }
 
-        if (self.request.data['recurring'] == True):
-            new_saving['start_date'] = self.request.data['start_date']
-            new_saving['end_date'] = self.request.data['end_date']
-            new_saving['frequency'] = self.request.data['frequency']
-            
-            serializer = serializers.RecurringSavingSerializer(data=new_saving)
-            if serializer.is_valid(raise_exception=True):
-                RecurringSaving.objects.create(**new_saving)
-        else:
-            new_saving['pay_out_day'] = self.request.data['pay_out_day']
+        serializer = self.serializer_class(data=new_saving)
+        if serializer.is_valid(raise_exception=True):
+            RecurringSaving.objects.create(**new_saving)
 
-            serializer = serializers.SavingSerializer(data=new_saving)
-            if serializer.is_valid(raise_exception=True):
-                Saving.objects.create(**new_saving)
-        
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class SingleSaving(views.APIView):
+class SingleRecurringSaving(views.APIView):
     """
-    Manage single contract
+    Manage single recurring saving
     """
-    serializer_class = serializers.ContractSerializer
+    serializer_class = serializers.RecurringSavingSerializer
 
     def get_object(self, pk):
-        return Contract.objects.get(pk = pk)
+        return RecurringSaving.objects.get(pk = pk)
 
     def get(self, request, pk):
         try:
-            contract = self.get_object(pk)
-            serializer = self.serializer_class(contract)
+            saving = self.get_object(pk)
+            serializer = self.serializer_class(saving)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except:
             return Response({"message":"not found"}, status=status.HTTP_404_NOT_FOUND)
 
     def put(self, request, pk):
-        updated_contract = {
+        updated_saving = {
             'name': self.request.data['name'],
             'user': self.request.user,
             'description': self.request.data['description'],
-            'first_billing_day': self.request.data['first_billing_day'],
+            'amount': self.request.data['amount'],
+            'start_date': self.request.data['start_date'],
             'end_date': None if self.request.data['end_date'] == "" else self.request.data['end_date'],
-            'billing_frequency': self.request.data['billing_frequency'],
+            'pay_out_day': None if self.request.data['pay_out_day'] == "" else self.request.data['pay_out_day'],
+            'frequency': self.request.data['frequency']
         }
 
-        contract = self.get_object(pk)
-        serializer = self.serializer_class(contract, data=updated_contract)
+        saving = self.get_object(pk)
+        serializer = self.serializer_class(saving, data=updated_saving)
         if serializer.is_valid(raise_exception=True):
             serializer.save()
         
@@ -261,12 +249,83 @@ class SingleSaving(views.APIView):
     
     def delete(self, request, pk):
         try:
-            contract = self.get_object(pk)
-            contract.delete()
-            return Response({"message":"contract deleted"}, status=status.HTTP_200_OK)
+            saving = self.get_object(pk)
+            saving.delete()
+            return Response({"message":"saving deleted"}, status=status.HTTP_200_OK)
         except:
             return Response({"message":"error"}, status=status.HTTP_404_NOT_FOUND)
 
+
+class SavingsList(views.APIView):
+    """
+    Manage savings
+    """
+    serializer_class = serializers.SavingSerializer
+
+    def get(self, request):
+        all_savings = Saving.objects.all().filter(user=self.request.user)
+        savings_serializer = self.serializer_class(all_savings, many=True)
+
+        return Response(savings_serializer.data, status=status.HTTP_200_OK
+        )
+    
+    def post(self, request):
+        new_saving = {
+            'name': self.request.data['name'],
+            'user': self.request.user,
+            'description': self.request.data['description'],
+            'amount': self.request.data['amount'],
+            'pay_out_day': None if self.request.data['pay_out_day'] == "" else self.request.data['pay_out_day']
+        }
+
+        serializer = self.serializer_class(data=new_saving)
+        if serializer.is_valid(raise_exception=True):
+            Saving.objects.create(**new_saving)
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+class SingleSaving(views.APIView):
+    """
+    Manage single saving
+    """
+    serializer_class = serializers.SavingSerializer
+
+    def get_object(self, pk):
+        return Saving.objects.get(pk = pk)
+
+    def get(self, request, pk):
+        try:
+            saving = self.get_object(pk)
+            serializer = self.serializer_class(saving)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except:
+            return Response({"message":"not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    def put(self, request, pk):
+        updated_saving = {
+            'name': self.request.data['name'],
+            'user': self.request.user,
+            'description': self.request.data['description'],
+            'amount': self.request.data['amount'],
+            'pay_out_day': None if self.request.data['pay_out_day'] == "" else self.request.data['pay_out_day']
+        }
+
+        saving = self.get_object(pk)
+        serializer = self.serializer_class(saving, data=updated_saving)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+        
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    def delete(self, request, pk):
+        try:
+            saving = self.get_object(pk)
+            saving.delete()
+            return Response({"message":"saving deleted"}, status=status.HTTP_200_OK)
+        except:
+            return Response({"message":"error"}, status=status.HTTP_404_NOT_FOUND)
 
     
 class BalanceView(views.APIView):

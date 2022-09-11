@@ -46,6 +46,7 @@ class RecurringSavingSerializer(serializers.ModelSerializer):
             'amount',
             'start_date',
             'end_date',
+            'pay_out_day',
             'frequency',
         ]
 
