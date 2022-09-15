@@ -1,5 +1,4 @@
 from datetime import date
-from .models import Contract, Saving, RecurringSaving
 from dataclasses import dataclass
 
 

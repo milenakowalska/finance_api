@@ -9,7 +9,6 @@ import coreschema
 from rest_framework.schemas import ManualSchema
 from .models import Contract, Saving, RecurringSaving
 from . import serializers
-from .utils import create_statistics
 from datetime import date
 
 
