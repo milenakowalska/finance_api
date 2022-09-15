@@ -15,21 +15,33 @@ class User(AbstractUser):
     def beginning_of_current_month(self, reference_date = date.today()):
         try:
             first_day = date(reference_date.year, reference_date.month, self.first_day_of_the_month)
-            return first_day
-        except ValueError:
+        except:
             last_day_of_month = calendar.monthrange(reference_date.year, reference_date.month)[1]
             first_day = date(reference_date.year, reference_date.month, last_day_of_month)
-            return first_day
+        
+        if first_day > reference_date:
+            first_day = first_day - relativedelta(months=1)
 
+        return first_day
+    
     def beginning_of_next_month(self, reference_date = date.today()):
-        return self.beginning_of_current_month(reference_date) + relativedelta(months=1)
+        try:
+            first_day = date(reference_date.year, reference_date.month, self.first_day_of_the_month)
+        except:
+            last_day_of_month = calendar.monthrange(reference_date.year, reference_date.month)[1]
+            first_day = date(reference_date.year, reference_date.month, last_day_of_month)
+        
+        if first_day <= reference_date:
+            first_day = first_day + relativedelta(months=1)
+
+        return first_day
 
     def create_statistics(self, balance, reference_date):
         all_savings = []
         active_contracts = []
-        user_contracts = self.contracts
-        user_savings = self.savings
-        user_recurring_savings = self.recurringsavings
+        user_contracts = self.contract.all()
+        user_savings = self.saving.all()
+        user_recurring_savings = self.recurringsaving.all()
 
         for saving in user_savings:
             if not saving.paid_out():
@@ -87,9 +99,12 @@ class Contract(Cost):
     def compute_next_billing_day(self, reference_date = date.today()):
         period_in_months = Frequency.frequency_to_months(self.billing_frequency)
         billing_day = self.first_billing_day
-        while billing_day < reference_date:
+        while billing_day <= reference_date:
                 billing_day = billing_day + relativedelta(months=+period_in_months)
 
+        if self.end_date is not None and self.end_date < billing_day:
+            return None
+            
         return billing_day
 
     def compute_previous_billing_day(self, reference_date = date.today()):
@@ -118,18 +133,22 @@ class Contract(Cost):
         previous_billing = self.compute_previous_billing_day(reference_date)
         next_billing = self.compute_next_billing_day(reference_date)
 
-        less_than_month_until_next_bill = relativedelta(next_billing, reference_date).months < 1
-        less_than_month_after_previous_bill = relativedelta(reference_date, previous_billing).months < 1
-        if less_than_month_until_next_bill and next_billing < next_month_first_day:
+        beginnings_until_next_billinng = 0
+
+        while next_month_first_day < next_billing:
+            beginnings_until_next_billinng += 1
+            next_month_first_day += relativedelta(months=1)
+
+        if beginnings_until_next_billinng == 0:
             return self.amount
-        elif less_than_month_after_previous_bill and current_month_first_day < previous_billing:
-            return 0
 
         period_in_months = Frequency.frequency_to_months(self.billing_frequency)
+
+        if period_in_months - beginnings_until_next_billinng == 0:
+            return 0
+
         monthly_store = self.amount / period_in_months
-        next_billing = self.compute_next_billing_day(reference_date)
-        full_remaining_months = relativedelta(next_billing, reference_date).months
-        to_store = monthly_store * (period_in_months - full_remaining_months)
+        to_store = monthly_store * (period_in_months - beginnings_until_next_billinng)
         return to_store
 
 
@@ -219,8 +238,8 @@ class Contract(Cost):
 class Saving(Cost):
     pay_out_day = models.DateField(null = True)
 
-    def paid_out(self):
-        return self.pay_out_day < date.today() if self.pay_out_day is not None else False
+    def paid_out(self, reference_date = date.today()):
+        return self.pay_out_day <= reference_date if self.pay_out_day is not None else False
 
 
 
@@ -234,10 +253,13 @@ class RecurringSaving(Cost):
         default = Frequency.MONTHLY
     )
 
-    def paid_out(self):
-        return self.pay_out_day < date.today() if self.pay_out_day is not None else False
+    def paid_out(self, reference_date = date.today()):
+        return self.pay_out_day < reference_date if self.pay_out_day is not None else False
 
     def saved_amount(self, reference_date):
+        if self.paid_out(reference_date):
+            return 0
+
         save_day = self.start_date
         end_day = self.end_date if self.end_date is not None and self.end_date < reference_date else reference_date
         total_saved = 0
