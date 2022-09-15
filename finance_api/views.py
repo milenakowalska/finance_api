@@ -343,7 +343,7 @@ class StatisticsView(views.APIView):
         serializer.is_valid(raise_exception=True)
         total_account_balance = serializer.data['balance']
         user = self.request.user
-        statistics = create_statistics(user, total_account_balance, date.today())
+        statistics = user.create_statistics(total_account_balance, date.today())
         return Response(statistics.show(), status=status.HTTP_202_ACCEPTED)
 
 

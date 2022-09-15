@@ -1,7 +1,56 @@
 from datetime import date
 from django.db import models
-from django.contrib.auth.models import User
+from django.contrib.auth.models import AbstractUser
 from dateutil.relativedelta import relativedelta
+from django.core.validators import MaxValueValidator, MinValueValidator
+import calendar
+from .utils import StatisticContract, StatisticSaving, Statistics
+
+class User(AbstractUser):
+    first_day_of_the_month = models.IntegerField(default = 1, validators=[
+            MaxValueValidator(31),
+            MinValueValidator(1)
+    ])
+
+    def beginning_of_current_month(self, reference_date = date.today()):
+        try:
+            first_day = date(reference_date.year, reference_date.month, self.first_day_of_the_month)
+            return first_day
+        except ValueError:
+            last_day_of_month = calendar.monthrange(reference_date.year, reference_date.month)[1]
+            first_day = date(reference_date.year, reference_date.month, last_day_of_month)
+            return first_day
+
+    def beginning_of_next_month(self, reference_date = date.today()):
+        return self.beginning_of_current_month(reference_date) + relativedelta(months=1)
+
+    def create_statistics(self, balance, reference_date):
+        all_savings = []
+        active_contracts = []
+        user_contracts = self.contracts
+        user_savings = self.savings
+        user_recurring_savings = self.recurringsavings
+
+        for saving in user_savings:
+            if not saving.paid_out():
+                all_savings.append(StatisticSaving(saving.name, False, saving.amount))
+                balance -= saving.amount
+
+        for recurring_saving in user_recurring_savings:
+            if not recurring_saving.paid_out():
+                total_saved = recurring_saving.saved_amount(reference_date)
+                all_savings.append(StatisticSaving(recurring_saving.name, True, total_saved))
+                balance -= recurring_saving.amount
+
+        for contract in user_contracts:
+            if not contract.archived():
+                billing_day = contract.compute_next_billing_day(reference_date)
+                to_store = contract.compute_amount_to_store_regarding_first_day_of_month(reference_date)
+
+                active_contracts.append(StatisticContract(contract.name, billing_day, contract.amount, to_store))
+                balance -= to_store
+
+        return Statistics(balance, all_savings, active_contracts)
 
 class Cost(models.Model):
     name = models.CharField(max_length = 30)
@@ -43,6 +92,11 @@ class Contract(Cost):
 
         return billing_day
 
+    def compute_previous_billing_day(self, reference_date = date.today()):
+        period_in_months = Frequency.frequency_to_months(self.billing_frequency)
+        previous_billing = self.compute_next_billing_day(reference_date) - relativedelta(months=+period_in_months)
+        return previous_billing
+
     def compute_amount_to_store(self, reference_date = date.today()):
         period_in_months = Frequency.frequency_to_months(self.billing_frequency)
         monthly_store = self.amount / period_in_months
@@ -51,6 +105,34 @@ class Contract(Cost):
         to_store = monthly_store * (period_in_months - full_remaining_months)
         return to_store
 
+    """ 
+    less than month until next_bill && next_bill < beginning_of_next_month: 100%
+    less than month after previous_bill && beginning_of_previous_month < previous_bill < beginning_of_next_month - 0%
+
+    in other cases:
+        monthly_store * (period_in_months - full_remaining_months)
+    """
+    def compute_amount_to_store_regarding_first_day_of_month(self, reference_date = date.today()):
+        current_month_first_day = self.user.beginning_of_current_month(reference_date)
+        next_month_first_day = self.user.beginning_of_next_month(reference_date)
+        previous_billing = self.compute_previous_billing_day(reference_date)
+        next_billing = self.compute_next_billing_day(reference_date)
+
+        less_than_month_until_next_bill = relativedelta(next_billing, reference_date).months < 1
+        less_than_month_after_previous_bill = relativedelta(reference_date, previous_billing).months < 1
+        if less_than_month_until_next_bill and next_billing < next_month_first_day:
+            return self.amount
+        elif less_than_month_after_previous_bill and current_month_first_day < previous_billing:
+            return 0
+
+        period_in_months = Frequency.frequency_to_months(self.billing_frequency)
+        monthly_store = self.amount / period_in_months
+        next_billing = self.compute_next_billing_day(reference_date)
+        full_remaining_months = relativedelta(next_billing, reference_date).months
+        to_store = monthly_store * (period_in_months - full_remaining_months)
+        return to_store
+
+
     """
     10.03 - Quarterly, 2100 EUR
     3 minus:
@@ -58,6 +140,71 @@ class Contract(Cost):
     - 1 month x days -> 66%
     - 0 months x days -> 100%
     10.06
+
+    10.03 - billing
+    10.06 - billing
+    10.09 - billing
+
+    5 - beginning of the month
+    5.03-10.03 -> store 100%
+    10.03-5.04 -> store 0
+    5.04-5.05 -> store 33%
+    5.05-5.06 -> store 66%
+    5.06-10.06 -> store 100%
+
+    period_in_months = 3
+    monthly_store = 700 EUR
+    next_billing = 10.06
+
+    8.03:
+    beginning_of_current_month 5.03
+    beginning_of_next_month 5.04
+----
+    frequency: monthly:
+    billing_day: 20.03
+    8.03 - bis billing_day -> 100%
+    21.03 - nach billing_day -> 0
+----
+    frequency: quarterly:
+    billing_day: 20.03, until then: 0 full months
+    bis billing_day -> 100%
+    nach billing_day -> 0    
+
+    billing_day: 20.04, until then: 1 full month
+    bis beginning_of_next_month -> 66%
+    nach beginning_of_next_month -> 100%
+
+    billing_day: 20.05, until then: 2 full months
+    bis beginning_of_next_month -> 33%
+    nach beginning_of_next_month -> 66%
+
+-----
+    frequency: yearly:
+    billing_day: 20.03
+    bis billing_day -> 100%
+    nach billing_day -> 0    
+
+    billing_day: 20.04
+    bis beginning_of_next_month -> 11/12
+    nach beginning_of_next_month -> 12/12
+
+    billing_day: 20.05
+    bis beginning_of_next_month -> 10/12
+    nach beginning_of_next_month -> 12/12
+
+----
+    less than month until next_bill && next_bill < beginning_of_next_month: 100%
+    less than month after previous_bill && beginning_of_previous_month < previous_bill < beginning_of_next_month - 100%
+
+    in other cases:
+        monthly_store * (period_in_months - full_remaining_months)
+
+    15 - beginning of the month
+    15.02-10.03 -> store 100%
+    10.03-15.03 -> store 0
+    15.03-15.04 -> store 33%
+    15.04-15.05 -> store 66%
+    15.05-10.06 -> store 100%
 
     10.03.2022 - Annually, 12000 EUR
     12 minus:

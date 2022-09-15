@@ -14,8 +14,6 @@ from .views import (
     SingleRecurringSaving
 )
 from rest_framework_swagger.views import get_swagger_view
-from django.views.generic import TemplateView
-from rest_framework.schemas import get_schema_view
 
 schema_view = get_swagger_view(title='Finance API')
 

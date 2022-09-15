@@ -1,8 +1,7 @@
 from datetime import date
-from distutils import archive_util
 from .models import Contract, Saving, RecurringSaving
 from dataclasses import dataclass
-import calendar
+
 
 @dataclass
 class Statistics:
@@ -59,31 +58,3 @@ class StatisticContract:
         self.amount = amount
         self.stored = stored
 
-
-def create_statistics(user, balance, reference_date):
-    all_savings = []
-    active_contracts = []
-    user_contracts = Contract.objects.all().filter(user = user)
-    user_savings = Saving.objects.all().filter(user = user)
-    user_recurring_savings = RecurringSaving.objects.all().filter(user = user)
-
-    for saving in user_savings:
-        if not saving.paid_out():
-            all_savings.append(StatisticSaving(saving.name, False, saving.amount))
-            balance -= saving.amount
-
-    for recurring_saving in user_recurring_savings:
-        if not recurring_saving.paid_out():
-            total_saved = recurring_saving.saved_amount(reference_date)
-            all_savings.append(StatisticSaving(recurring_saving.name, True, total_saved))
-            balance -= recurring_saving.amount
-
-    for contract in user_contracts:
-        if not contract.archived():
-            billing_day = contract.compute_next_billing_day(reference_date)
-            to_store = contract.compute_amount_to_store(reference_date)
-
-            active_contracts.append(StatisticContract(contract.name, billing_day, contract.amount, to_store))
-            balance -= to_store
-
-    return Statistics(balance, all_savings, active_contracts)
