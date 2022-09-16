@@ -612,35 +612,227 @@ class UserTestCase(TestCase):
 
     def test_create_statistics_multiple_contracts(self):
         "Statistics are computed correctly for user with multiple contracts"
-        #TODO
-        pass
+        user =  User.objects.create(username = "StatisticsManyContacts", first_day_of_the_month = 5)
+        ContractTestCase.createSampleContract(
+            104,
+            user,
+            first_billing_day = date(2022, 5, 20),
+            amount=2100,
+            frequency=Frequency.QUARTERLY
+        )
+        ContractTestCase.createSampleContract(
+            105,
+            user,
+            first_billing_day = date(2022, 5, 10),
+            amount=2100,
+            frequency=Frequency.MONTHLY
+        )
 
+        reference_date = date(2022, 5, 20)
+        active_contracts=[
+                StatisticContract("contract_104", date(2022, 8, 20), 2100, 0),
+                StatisticContract("contract_105", date(2022, 6, 10), 2100, 0)
+            ]
+        statistics = user.create_statistics(10000, reference_date)
+        self.assertEqual(statistics.balance, 10000)
+        self.assertCountEqual(statistics.active_contracts, active_contracts)
+
+        reference_date = date(2022, 6, 5)
+        active_contracts=[
+                StatisticContract("contract_104", date(2022, 8, 20), 2100, 700),
+                StatisticContract("contract_105", date(2022, 6, 10), 2100, 2100)
+            ]
+        statistics = user.create_statistics(10000, reference_date)
+        self.assertEqual(statistics.balance, 7200)
+        self.assertCountEqual(statistics.active_contracts, active_contracts)
+
+        reference_date = date(2022, 6, 10)
+        active_contracts=[
+                StatisticContract("contract_104", date(2022, 8, 20), 2100, 700),
+                StatisticContract("contract_105", date(2022, 7, 10), 2100, 0)
+            ]
+        statistics = user.create_statistics(10000, reference_date)
+        self.assertEqual(statistics.balance, 9300)
+        self.assertCountEqual(statistics.active_contracts, active_contracts)
+
+        reference_date = date(2022, 8, 8)
+        active_contracts=[
+                StatisticContract("contract_104", date(2022, 8, 20), 2100, 2100),
+                StatisticContract("contract_105", date(2022, 8, 10), 2100, 2100)
+            ]
+        statistics = user.create_statistics(10000, reference_date)
+        self.assertEqual(statistics.balance, 5800)
+        self.assertCountEqual(statistics.active_contracts, active_contracts)
+
+
+        reference_date = date(2022, 8, 10)
+        active_contracts=[
+                StatisticContract("contract_104", date(2022, 8, 20), 2100, 2100),
+                StatisticContract("contract_105", date(2022, 9, 10), 2100, 0)
+            ]
+        statistics = user.create_statistics(10000, reference_date)
+        self.assertEqual(statistics.balance, 7900)
+        self.assertCountEqual(statistics.active_contracts, active_contracts)
+
+        
     def test_create_statistics_multiple_savings(self):
         "Statistics are computed correctly for user with multiple savings"
-        #TODO
-        pass
+        user =  User.objects.create(username = "ManySavings", first_day_of_the_month = 5)
+        SavingTestCase.createSampleSaving(106, user, amount=2000)
+        SavingTestCase.createSampleSaving(107, user, amount=2000)
+        SavingTestCase.createSampleSaving(108, user, amount=2000, pay_out_day=date(2022, 5, 10))
+
+        reference_date = date(2022, 5, 9)
+        savings = [
+            StatisticSaving("saving_106", False, 2000),
+            StatisticSaving("saving_107", False, 2000),
+            StatisticSaving("saving_108", False, 2000)
+        ]
+        statistics = user.create_statistics(10000, reference_date)
+        self.assertEqual(statistics.balance, 4000)
+        self.assertCountEqual(statistics.savings, savings)
+
+        reference_date = date(2022, 5, 10)
+        savings = [
+            StatisticSaving("saving_106", False, 2000),
+            StatisticSaving("saving_107", False, 2000)
+        ]
+        statistics = user.create_statistics(10000, reference_date)
+        self.assertEqual(statistics.balance, 6000)
+        self.assertCountEqual(statistics.savings, savings)
 
     def test_create_statistics_one_recurring_saving_monthly(self):
         "Statistics are computed correctly for user with one recurring saving with frequency: monthly"
-        #TODO
-        pass
+        user =  User.objects.create(username = "ManyRecurringSavings", first_day_of_the_month = 5)
+        RecurringSavingTestCase.createSampleRecurringSaving(109, user, start_date = date(2022, 5, 20), amount = 100)
+
+        reference_date = date(2022, 5, 20)
+        savings = [
+            StatisticSaving("recurring_saving_109", True, 100)
+        ]
+        statistics = user.create_statistics(10000, reference_date)
+        self.assertEqual(statistics.balance, 9900)
+        self.assertCountEqual(statistics.savings, savings)
+
+        reference_date = date(2023, 2, 20)
+        savings = [
+            StatisticSaving("recurring_saving_109", True, 1000)
+        ]
+        statistics = user.create_statistics(10000, reference_date)
+        self.assertEqual(statistics.balance, 9000)
+        self.assertCountEqual(statistics.savings, savings)
+
 
     def test_create_statistics_one_recurring_saving_quarterly(self):
         "Statistics are computed correctly for user with one recurring saving with frequency: quarterly"
-        #TODO
-        pass
+        user =  User.objects.create(username = "RecurringSavingsQuarterly", first_day_of_the_month = 5)
+        RecurringSavingTestCase.createSampleRecurringSaving(
+            110,
+            user,
+            start_date = date(2022, 5, 20),
+            amount = 100,
+            frequency=Frequency.QUARTERLY
+        )
+
+        reference_date = date(2022, 5, 20)
+        savings = [
+            StatisticSaving("recurring_saving_110", True, 100)
+        ]
+        statistics = user.create_statistics(10000, reference_date)
+        self.assertEqual(statistics.balance, 9900)
+        self.assertCountEqual(statistics.savings, savings)
+
+        reference_date = date(2022, 9, 20)
+        savings = [
+            StatisticSaving("recurring_saving_110", True, 200)
+        ]
+        statistics = user.create_statistics(10000, reference_date)
+        self.assertEqual(statistics.balance, 9800)
+        self.assertCountEqual(statistics.savings, savings)
 
     def test_create_statistics_one_recurring_saving_annually(self):
         "Statistics are computed correctly for user with one recurring saving with frequency: annually"
-        #TODO
-        pass
+        user =  User.objects.create(username = "RecurringSavingsQuarterly", first_day_of_the_month = 5)
+        RecurringSavingTestCase.createSampleRecurringSaving(
+            111,
+            user,
+            start_date = date(2022, 5, 20),
+            amount = 100,
+            frequency=Frequency.ANNUALY
+        )
+
+        reference_date = date(2022, 5, 20)
+        savings = [
+            StatisticSaving("recurring_saving_111", True, 100)
+        ]
+        statistics = user.create_statistics(10000, reference_date)
+        self.assertEqual(statistics.balance, 9900)
+        self.assertCountEqual(statistics.savings, savings)
+
+        reference_date = date(2023, 5, 20)
+        savings = [
+            StatisticSaving("recurring_saving_111", True, 200)
+        ]
+        statistics = user.create_statistics(10000, reference_date)
+        self.assertEqual(statistics.balance, 9800)
+        self.assertCountEqual(statistics.savings, savings)
 
     def test_create_statistics_multiple_recurring_savings(self):
         "Statistics are computed correctly for user with multiple recurring savings"
-        #TODO
-        pass
+        user =  User.objects.create(username = "RecurringSavingsQuarterly", first_day_of_the_month = 5)
+        RecurringSavingTestCase.createSampleRecurringSaving(
+            112,
+            user,
+            start_date = date(2022, 5, 20),
+            amount = 100,
+            frequency=Frequency.MONTHLY
+        )
+        RecurringSavingTestCase.createSampleRecurringSaving(
+            113,
+            user,
+            start_date = date(2022, 2, 20),
+            amount = 100,
+            frequency=Frequency.ANNUALY
+        )
+        reference_date = date(2023, 5, 20)
+        savings = [
+            StatisticSaving("recurring_saving_112", True, 1300),
+            StatisticSaving("recurring_saving_113", True, 200)
+        ]
+        statistics = user.create_statistics(10000, reference_date)
+        self.assertEqual(statistics.balance, 8500)
+        self.assertCountEqual(statistics.savings, savings)
 
     def test_create_statistics_multiple_contracts_and_savings(self):
         "Statistics are computed correctly for user with multiple contracts and savings"
-        #TODO
-        pass
+        user =  User.objects.create(username = "RecurringSavingsQuarterly", first_day_of_the_month = 5)
+        RecurringSavingTestCase.createSampleRecurringSaving(
+            114,
+            user,
+            start_date = date(2022, 5, 20),
+            amount = 100,
+            frequency=Frequency.MONTHLY
+        )
+        SavingTestCase.createSampleSaving(115, user, amount=2000)
+        SavingTestCase.createSampleSaving(116, user, amount=2000, pay_out_day=date(2022, 8, 10))
+        ContractTestCase.createSampleContract(
+            117,
+            user,
+            first_billing_day = date(2022, 5, 10),
+            amount=2100,
+            frequency=Frequency.MONTHLY
+        )
+
+        reference_date = date(2022, 7, 30)
+        active_contracts=[
+                StatisticContract("contract_117", date(2022, 8, 10), 2100, 0),
+        ]
+        savings = [
+            StatisticSaving("saving_115", False, 2000),
+            StatisticSaving("saving_116", False, 2000),
+            StatisticSaving("recurring_saving_114", True, 300)
+        ]
+        statistics = user.create_statistics(10000, reference_date)
+        self.assertEqual(statistics.balance, 5700)
+        self.assertCountEqual(statistics.savings, savings)
+        self.assertCountEqual(statistics.active_contracts, active_contracts)

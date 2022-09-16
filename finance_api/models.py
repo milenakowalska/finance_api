@@ -44,15 +44,15 @@ class User(AbstractUser):
         user_recurring_savings = self.recurringsaving.all()
 
         for saving in user_savings:
-            if not saving.paid_out():
+            if not saving.paid_out(reference_date):
                 all_savings.append(StatisticSaving(saving.name, False, saving.amount))
                 balance -= saving.amount
 
         for recurring_saving in user_recurring_savings:
-            if not recurring_saving.paid_out():
+            if not recurring_saving.paid_out(reference_date):
                 total_saved = recurring_saving.saved_amount(reference_date)
                 all_savings.append(StatisticSaving(recurring_saving.name, True, total_saved))
-                balance -= recurring_saving.amount
+                balance -= total_saved
 
         for contract in user_contracts:
             if not contract.archived():
@@ -93,8 +93,8 @@ class Contract(Cost):
         default = Frequency.MONTHLY
     )
 
-    def archived(self):
-        return self.end_date < date.today() if self.end_date is not None else False
+    def archived(self, reference_date = date.today()):
+        return self.end_date < reference_date if self.end_date is not None else False
 
     def compute_next_billing_day(self, reference_date = date.today()):
         period_in_months = Frequency.frequency_to_months(self.billing_frequency)
