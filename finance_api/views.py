@@ -346,9 +346,10 @@ class StatisticsView(views.APIView):
         return Response(statistics.show(), status=status.HTTP_202_ACCEPTED)
 
 
-class PrognoseView(views.APIView):
-    """
-    See prognose
-    """
-    def get(self, request):
-        return Response(None, status=status.HTTP_200_OK)
+#TODO: Needs to be implemented
+# class PrognoseView(views.APIView):
+#     """
+#     See prognose.
+#     """
+#     def get(self, request):
+#         return Response(None, status=status.HTTP_200_OK)

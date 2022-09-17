@@ -7,7 +7,7 @@ from .views import (
     ContractsList,
     SingleContract,
     StatisticsView,
-    PrognoseView,
+    #PrognoseView,
     SavingsList,
     SingleSaving,
     RecurringSavingsList,
@@ -29,6 +29,7 @@ urlpatterns = [
     path('savings/<int:pk>/', SingleSaving.as_view()),
     path('recurring-savings/', RecurringSavingsList.as_view()),
     path('recurring-savings/<int:pk>/', SingleRecurringSaving.as_view()),
-    path('statistics/', StatisticsView.as_view()),
-    path('prognose/', PrognoseView.as_view()),
+    path('statistics/', StatisticsView.as_view())
+    #TODO: Needs to be implemented
+    #path('prognose/', PrognoseView.as_view()),
 ]
