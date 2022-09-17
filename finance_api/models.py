@@ -6,28 +6,59 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 import calendar
 from .utils import StatisticContract, StatisticSaving, Statistics
 
+
 class User(AbstractUser):
+    """
+    Custom authentication User model.
+
+    Additional attribute:
+        first_day_of_the_month      Day of the month that points out when the calculation period for the user should begin.
+                                    It is recommended to match the day of the salary,
+                                    so that the program computes disponible amount in statistics is according to truth.
+                                    By default the day points out to the actual beginning of the month (day 1).
+    """
+
     first_day_of_the_month = models.IntegerField(default = 1, validators=[
             MaxValueValidator(31),
             MinValueValidator(1)
     ])
 
     def beginning_of_current_month(self, reference_date = date.today()):
-        try:
-            first_day = date(reference_date.year, reference_date.month, self.first_day_of_the_month)
-        except:
-            last_day_of_month = calendar.monthrange(reference_date.year, reference_date.month)[1]
+        """
+        Calculates the beginning of the month based on the reference_date
+        and the user specific first_day_of_the_month.
+
+        If first_day_of_the_month is bigger than the last day of the month,
+        the function returns last applicable day.
+
+        e.g.
+        first_day_of_the_month = 31
+        reference_date = date(2022, 2, 1)
+        result = date(2022, 2, 28)
+        """
+        last_day_of_month = calendar.monthrange(reference_date.year, reference_date.month)[1]
+
+        if last_day_of_month < self.first_day_of_the_month:
             first_day = date(reference_date.year, reference_date.month, last_day_of_month)
-        
+        else:
+            first_day = date(reference_date.year, reference_date.month, self.first_day_of_the_month)
+          
         if first_day > reference_date:
             first_day = first_day - relativedelta(months=1)
 
         return first_day
     
     def beginning_of_next_month(self, reference_date = date.today()):
+        """
+        Calculates the beginning of the next month based on the reference_date
+        and the user specific first_day_of_the_month.
+
+        If first_day_of_the_month is bigger than the last day of the next month,
+        the function returns last applicable day.
+        """
         try:
             first_day = date(reference_date.year, reference_date.month, self.first_day_of_the_month)
-        except:
+        except ValueError:
             last_day_of_month = calendar.monthrange(reference_date.year, reference_date.month)[1]
             first_day = date(reference_date.year, reference_date.month, last_day_of_month)
         
@@ -37,6 +68,20 @@ class User(AbstractUser):
         return first_day
 
     def create_statistics(self, balance, reference_date):
+        """
+        Creates statistics
+        based on:
+        - balance (should illustrate total account balance)
+        - contracts, savings and recurring savings of the user
+        - reference_date
+
+        The function computes, which amount should be stored 
+        for the specific contract and saving
+        and subtracts this amount from the given balance,
+        in order to compute the amount disponible for the user.
+
+        The result is presented as an instance of the class utils.Statistics.
+        """
         all_savings = []
         active_contracts = []
         user_contracts = self.contract.all()
@@ -64,13 +109,26 @@ class User(AbstractUser):
 
         return Statistics(balance, all_savings, active_contracts)
 
+
 class Cost(models.Model):
+    """
+    Abstract class used as a base to model user related costs.
+    Currently used to model Contract, Saving and RecurringSaving.
+
+    Attributes:
+        name            Name of the costs
+        user            Foreign key pointing to the user that this costs is related to
+        description     Optional description.
+        amount          Amount of money related to this costs.
+    """
     name = models.CharField(max_length = 30)
     user = models.ForeignKey(User, on_delete = models.CASCADE, related_name = "%(class)s")
-    description = models.CharField(max_length = 300)
+    description = models.CharField(max_length = 300, null = True)
     amount = models.FloatField(default=0)
 
     class Meta:
+        # mark model as abstract,
+        # so that it is not used to create any database table
         abstract = True
 
 
