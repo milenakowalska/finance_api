@@ -133,12 +133,27 @@ class Cost(models.Model):
 
 
 class Frequency(models.IntegerChoices):
+    """
+    Enum class used by Contract and RecurringSaving classes
+    in order to define the billing frequency.
+    """
     MONTHLY = 1
     QUARTERLY = 3
     ANNUALY = 12
     
 
 class Contract(Cost):
+    """
+    Subclass of the Cost class that defines user specific contracts.
+
+    Attributes:
+        first_billing_day       Day when the contract started. Each next billing day is computed
+                                based on this date.
+        end_date                End date of the contract. None by default.
+        billing_frequency       Defines billing frequency on the contract.
+                                Can be one of the options defined in enum class Frequency:
+                                Monthly, Quarterly, Annualy.
+    """
     first_billing_day = models.DateField(default = date.today)
     end_date = models.DateField(null = True)
     billing_frequency = models.IntegerField(
@@ -148,9 +163,18 @@ class Contract(Cost):
     )
 
     def archived(self, reference_date = date.today()):
+        """
+        Returns boolean saying if the contract is archived,
+        based on the end_date and reference_date.
+        """
         return self.end_date < reference_date if self.end_date is not None else False
 
     def compute_next_billing_day(self, reference_date = date.today()):
+        """
+        Computes next billing day of the contract.
+        Based on the first_billing_day, the function looks for the first possible billing day
+        in the future (in relation to reference_date).
+        """
         period_in_months = self.billing_frequency
         billing_day = self.first_billing_day
         while billing_day <= reference_date:
@@ -162,11 +186,17 @@ class Contract(Cost):
         return billing_day
 
     def compute_previous_billing_day(self, reference_date = date.today()):
+        """
+        Computes previous billing day of the contract.
+        Based on the first_billing_day, the function looks for the last billing day
+        in the past (in relation to reference_date).
+        """
         period_in_months = self.billing_frequency
         previous_billing = self.compute_next_billing_day(reference_date) - relativedelta(months=+period_in_months)
         return previous_billing
 
     def compute_amount_to_store(self, reference_date = date.today()):
+
         period_in_months = self.billing_frequency
         monthly_store = self.amount / period_in_months
         next_billing = self.compute_next_billing_day(reference_date)
@@ -174,17 +204,49 @@ class Contract(Cost):
         to_store = monthly_store * (period_in_months - full_remaining_months)
         return to_store
 
-    """ 
-    less than month until next_bill && next_bill < beginning_of_next_month: 100%
-    less than month after previous_bill && beginning_of_previous_month < previous_bill < beginning_of_next_month - 0%
 
-    in other cases:
-        monthly_store * (period_in_months - full_remaining_months)
-    """
     def compute_amount_to_store_regarding_first_day_of_month(self, reference_date = date.today()):
-        current_month_first_day = self.user.beginning_of_current_month(reference_date)
+        """
+        Computes amount that needs to be stored for the contract.
+
+        The computed value is based on the following factors:
+        - user specific first_day_of_the_month 
+        - reference_date (date.today() by default)
+        - billing_frequency of the contract
+        - contract's amount
+
+        Basically, the functions checks how many times new month will begin
+        until the next expected billing day,
+        meaning how many salaries the user will get.
+        Then, it computes which part of the full contract amount should be stored
+        at this point of time.
+
+        E.g. having a contract with next billing day 12.12.2022 and billing frequency: QUARTERLY
+        for a user with first_day_of_the_month = 5.
+
+        * reference_date since 1.10.2022 until 4.10.2022:
+        - there will be 3 salaries until billing day: 5.10.2022, 5.11.2022 and 5.12.2022.
+        Therefore 0% of the amount needs to be stored.
+
+        * reference_date since 5.10.2022 until 4.11.2022:
+        - there will be 2 additional salaries until billing day: 5.11.2022 and 5.12.2022.
+        Therefore 1/3 of the amount needs to be stored.
+
+        * reference_date since 5.11.2022 until 4.12.2022:
+        - there will be 1 additional salary until billing day: 5.12.2022.
+        Therefore 2/3 of the amount needs to be stored.
+
+        * reference_date since 4.12.2022 until 11.12.2022:
+        - there will be no additional salary until billing day.
+        Therefore 100% of the amount needs to be stored.
+
+        The amount_to_store is computed analogically for billing_frequency MONTHLY and ANNUALY,
+        with the difference that for the MONTHLY billed contracts the stored amount can be
+        either 0 or 100% (because there is always max. 1 salary until the billing_day)
+        and for ANUALLY contracts the program computes 1/12 of the full amount
+        for each month to store.
+        """
         next_month_first_day = self.user.beginning_of_next_month(reference_date)
-        previous_billing = self.compute_previous_billing_day(reference_date)
         next_billing = self.compute_next_billing_day(reference_date)
 
         beginnings_until_next_billinng = 0
@@ -206,98 +268,38 @@ class Contract(Cost):
         return to_store
 
 
-    """
-    10.03 - Quarterly, 2100 EUR
-    3 minus:
-    - 2 months x days -> 33%
-    - 1 month x days -> 66%
-    - 0 months x days -> 100%
-    10.06
-
-    10.03 - billing
-    10.06 - billing
-    10.09 - billing
-
-    5 - beginning of the month
-    5.03-10.03 -> store 100%
-    10.03-5.04 -> store 0
-    5.04-5.05 -> store 33%
-    5.05-5.06 -> store 66%
-    5.06-10.06 -> store 100%
-
-    period_in_months = 3
-    monthly_store = 700 EUR
-    next_billing = 10.06
-
-    8.03:
-    beginning_of_current_month 5.03
-    beginning_of_next_month 5.04
-----
-    frequency: monthly:
-    billing_day: 20.03
-    8.03 - bis billing_day -> 100%
-    21.03 - nach billing_day -> 0
-----
-    frequency: quarterly:
-    billing_day: 20.03, until then: 0 full months
-    bis billing_day -> 100%
-    nach billing_day -> 0    
-
-    billing_day: 20.04, until then: 1 full month
-    bis beginning_of_next_month -> 66%
-    nach beginning_of_next_month -> 100%
-
-    billing_day: 20.05, until then: 2 full months
-    bis beginning_of_next_month -> 33%
-    nach beginning_of_next_month -> 66%
-
------
-    frequency: yearly:
-    billing_day: 20.03
-    bis billing_day -> 100%
-    nach billing_day -> 0    
-
-    billing_day: 20.04
-    bis beginning_of_next_month -> 11/12
-    nach beginning_of_next_month -> 12/12
-
-    billing_day: 20.05
-    bis beginning_of_next_month -> 10/12
-    nach beginning_of_next_month -> 12/12
-
-----
-    less than month until next_bill && next_bill < beginning_of_next_month: 100%
-    less than month after previous_bill && beginning_of_previous_month < previous_bill < beginning_of_next_month - 100%
-
-    in other cases:
-        monthly_store * (period_in_months - full_remaining_months)
-
-    15 - beginning of the month
-    15.02-10.03 -> store 100%
-    10.03-15.03 -> store 0
-    15.03-15.04 -> store 33%
-    15.04-15.05 -> store 66%
-    15.05-10.06 -> store 100%
-
-    10.03.2022 - Annually, 12000 EUR
-    12 minus:
-    - 11 months -> 1/12 * amount
-    - 10 months -> 1/12 * amount * 2
-    - 2 months x days -> 33%
-    - 1 month x days -> 66%
-    - 0 months x days -> 100%
-    10.03.2023
-    """
-
 class Saving(Cost):
+    """
+    Subclass of the Cost class that defines user specific one-time saving.
+
+    Attributes:
+        pay_out_day       Day when the saved amount should be paid out.
+    """
     pay_out_day = models.DateField(null = True)
 
     def paid_out(self, reference_date = date.today()):
+        """
+        Returns boolean saying if the saved amount has been paid out,
+        based on the pay_out_day and reference_date.
+        """
         return self.pay_out_day <= reference_date if self.pay_out_day is not None else False
 
 
 
 class RecurringSaving(Cost):
+    """
+    Subclass of the Cost class that defines user specific recurring saving.
+
+    Attributes:
+        start_date      Day when the saving programm started.
+        end_date        End date of the saving.
+                        From this day on, no further amounts will be saved.
+        pay_out_day     Day when the total saved amount should be paid out. 
+        frequency       Defines frequency on the saving recurrency.
+                        Can be one of the options defined in enum class Frequency:
+                        Monthly, Quarterly, Annualy.
+    """
+
     start_date = models.DateField(default = date.today)
     end_date = models.DateField(null = True)
     pay_out_day = models.DateField(null = True)
@@ -308,9 +310,17 @@ class RecurringSaving(Cost):
     )
 
     def paid_out(self, reference_date = date.today()):
+        """
+        Returns boolean saying if the saved amount has been paid out,
+        based on the pay_out_day and reference_date.
+        """
         return self.pay_out_day < reference_date if self.pay_out_day is not None else False
 
     def saved_amount(self, reference_date):
+        """
+        Computes total amount saved for this saving,
+        based on the start_date, reference_date, recurrency and amount.
+        """
         if self.paid_out(reference_date):
             return 0
 
