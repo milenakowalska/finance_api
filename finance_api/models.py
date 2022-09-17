@@ -132,20 +132,16 @@ class Cost(models.Model):
         abstract = True
 
 
-class Frequency(models.TextChoices):
-    MONTHLY = 'MONTHLY'
-    QUARTERLY = 'QUARTERLY'
-    ANNUALY = 'ANNUALY'
-
-    @staticmethod
-    def frequency_to_months(frequency):
-        return 1 if frequency == Frequency.MONTHLY else 3 if frequency == Frequency.QUARTERLY else 12
-
+class Frequency(models.IntegerChoices):
+    MONTHLY = 1
+    QUARTERLY = 3
+    ANNUALY = 12
+    
 
 class Contract(Cost):
     first_billing_day = models.DateField(default = date.today)
     end_date = models.DateField(null = True)
-    billing_frequency = models.CharField(
+    billing_frequency = models.IntegerField(
         max_length = 10,
         choices = Frequency.choices,
         default = Frequency.MONTHLY
@@ -155,7 +151,7 @@ class Contract(Cost):
         return self.end_date < reference_date if self.end_date is not None else False
 
     def compute_next_billing_day(self, reference_date = date.today()):
-        period_in_months = Frequency.frequency_to_months(self.billing_frequency)
+        period_in_months = self.billing_frequency
         billing_day = self.first_billing_day
         while billing_day <= reference_date:
                 billing_day = billing_day + relativedelta(months=+period_in_months)
@@ -166,12 +162,12 @@ class Contract(Cost):
         return billing_day
 
     def compute_previous_billing_day(self, reference_date = date.today()):
-        period_in_months = Frequency.frequency_to_months(self.billing_frequency)
+        period_in_months = self.billing_frequency
         previous_billing = self.compute_next_billing_day(reference_date) - relativedelta(months=+period_in_months)
         return previous_billing
 
     def compute_amount_to_store(self, reference_date = date.today()):
-        period_in_months = Frequency.frequency_to_months(self.billing_frequency)
+        period_in_months = self.billing_frequency
         monthly_store = self.amount / period_in_months
         next_billing = self.compute_next_billing_day(reference_date)
         full_remaining_months = relativedelta(next_billing, reference_date).months
@@ -200,7 +196,7 @@ class Contract(Cost):
         if beginnings_until_next_billinng == 0:
             return self.amount
 
-        period_in_months = Frequency.frequency_to_months(self.billing_frequency)
+        period_in_months = self.billing_frequency
 
         if period_in_months - beginnings_until_next_billinng == 0:
             return 0
@@ -305,7 +301,7 @@ class RecurringSaving(Cost):
     start_date = models.DateField(default = date.today)
     end_date = models.DateField(null = True)
     pay_out_day = models.DateField(null = True)
-    frequency = models.CharField(
+    frequency = models.IntegerField(
         max_length = 10,
         choices = Frequency.choices,
         default = Frequency.MONTHLY
@@ -321,7 +317,7 @@ class RecurringSaving(Cost):
         save_day = self.start_date
         end_day = self.end_date if self.end_date is not None and self.end_date < reference_date else reference_date
         total_saved = 0
-        saving_period = Frequency.frequency_to_months(self.frequency)
+        saving_period = self.frequency
         while save_day <= end_day:
             total_saved += self.amount
             save_day = save_day + relativedelta(months=+saving_period)
